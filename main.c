@@ -326,24 +326,19 @@ int8_t user_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *in
 
 int8_t user_i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len, void *intf_ptr)
 {
-	ret_code_t err_code;
-	
 	uint8_t write_data[256];
 
-	if (len > 255)
-	{
-		err_code = 1;
-		return err_code;
-	}
-	
+	if (len > sizeof(write_data) - 1)
+		return 1;
+
 	write_data[0] = reg_addr;
-	
-	memcpy(&write_data[1],reg_data,len);
-	
-	err_code = nrf_drv_twi_tx(&m_twi_master, *(uint8_t *)intf_ptr, write_data, len + 1 ,false);
-	
+
+	memcpy(&write_data[1], reg_data, len);
+
+	ret_code_t err_code = nrf_drv_twi_tx(&m_twi_master, *(uint8_t *)intf_ptr, write_data, len + 1 ,false);
+
 	APP_ERROR_CHECK(err_code);
-	
+
 	return 0;
 }
 

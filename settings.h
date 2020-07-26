@@ -7,7 +7,12 @@
 #define SUBSCRIPTION_TIMER_INTERVAL          500
 #define INTERNAL_TEMPERATURE_TIMER_INTERVAL  1000
 #define VOLTAGE_TIMER_INTERVAL               1000
-#define BME280_TIMER_INTERVAL                5000
+#define BME280_TIMER_INTERVAL                1000
+
+#define DEFAULT_POLL_PERIOD                  60000
+#define DEFAULT_POLL_PERIOD_FAST             500
+#define DEFAULT_POLL_PERIOD_FAST_TIMEOUT     5000
+#define DEFAULT_CHILD_TIMEOUT                240
 
 #define ADC_SAMPLES_PER_CHANNEL              32
 

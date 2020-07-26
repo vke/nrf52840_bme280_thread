@@ -79,18 +79,22 @@ APP_TIMER_DEF(m_bme280_timer_id);
 APP_TIMER_DEF(m_bme280_measurement_delay_timer_id);
 
 sensor_subscription sensor_subscriptions[] = {
-	{ .sensor_name = 'P', .sent_value = 0, .current_value = 0, .reportable_change = 0, .disable_reporting = true, .read_only = true, .report_interval = 10000, .last_sent_at = 0, .set_value_handler = NULL, },
-	{ .sensor_name = 'T', .sent_value = 0, .current_value = 0, .reportable_change = 0, .disable_reporting = true, .read_only = true, .report_interval = 10000, .last_sent_at = 0, .set_value_handler = NULL, },
-	{ .sensor_name = 'H', .sent_value = 0, .current_value = 0, .reportable_change = 0, .disable_reporting = true, .read_only = true, .report_interval = 10000, .last_sent_at = 0, .set_value_handler = NULL, },
-	{ .sensor_name = 'v', .sent_value = 0, .current_value = 0, .reportable_change = 0, .disable_reporting = true, .read_only = true, .report_interval = 10000, .last_sent_at = 0, .set_value_handler = NULL, },
-	{ .sensor_name = 'V', .sent_value = 0, .current_value = 0, .reportable_change = 0, .disable_reporting = true, .read_only = true, .report_interval = 10000, .last_sent_at = 0, .set_value_handler = NULL, },
-	{ .sensor_name = 't', .sent_value = 0, .current_value = 0, .reportable_change = 0, .disable_reporting = true, .read_only = true, .report_interval = 10000, .last_sent_at = 0, .set_value_handler = NULL, },
-	{ .sensor_name = SENSOR_SUBSCRIPTION_NAME_LAST, .sent_value = 0, .current_value = 0, .reportable_change = 0, .disable_reporting = true, .read_only = true, .report_interval = 10000, .last_sent_at = 0, .set_value_handler = NULL, },
+	{ .sensor_name = 'P', .sent_value = 0, .current_value = 0, .reportable_change = 0, .disable_reporting = true, .read_only = true, .initialized = false, .report_interval = 10000, .last_sent_at = 0, .set_value_handler = NULL, },
+	{ .sensor_name = 'T', .sent_value = 0, .current_value = 0, .reportable_change = 0, .disable_reporting = true, .read_only = true, .initialized = false, .report_interval = 10000, .last_sent_at = 0, .set_value_handler = NULL, },
+	{ .sensor_name = 'H', .sent_value = 0, .current_value = 0, .reportable_change = 0, .disable_reporting = true, .read_only = true, .initialized = false, .report_interval = 10000, .last_sent_at = 0, .set_value_handler = NULL, },
+	{ .sensor_name = 'v', .sent_value = 0, .current_value = 0, .reportable_change = 0, .disable_reporting = true, .read_only = true, .initialized = false, .report_interval = 10000, .last_sent_at = 0, .set_value_handler = NULL, },
+	{ .sensor_name = 'V', .sent_value = 0, .current_value = 0, .reportable_change = 0, .disable_reporting = true, .read_only = true, .initialized = false, .report_interval = 10000, .last_sent_at = 0, .set_value_handler = NULL, },
+	{ .sensor_name = 't', .sent_value = 0, .current_value = 0, .reportable_change = 0, .disable_reporting = true, .read_only = true, .initialized = false, .report_interval = 10000, .last_sent_at = 0, .set_value_handler = NULL, },
+	{ .sensor_name = SENSOR_SUBSCRIPTION_NAME_LAST, .sent_value = 0, .current_value = 0, .reportable_change = 0, .disable_reporting = true, .read_only = true, .initialized = false, .report_interval = 10000, .last_sent_at = 0, .set_value_handler = NULL, },
 };
 
 static nrf_saadc_value_t adc_buf[ADC_CHANNELS * ADC_SAMPLES_PER_CHANNEL];
 
+int32_t internal_temp_prev = 0x7FFFFFFF;
+
+int32_t dc_voltage_12_prev = 0x7FFFFFFF;
 int32_t dc_voltage_12 = 0;
+int32_t dc_voltage_3v3_prev = 0x7FFFFFFF;
 int32_t dc_voltage_3v3 = 0;
 
 void update_voltage_attributes_callback(void *p_event_data, uint16_t event_size)
@@ -114,12 +118,24 @@ void saadc_event_handler(nrf_drv_saadc_evt_t const *p_event)
 			sums[i] = sums[i] / ADC_SAMPLES_PER_CHANNEL;
 		}
 
-		dc_voltage_12 = sums[1];
+		if (dc_voltage_12_prev == 0x7FFFFFFF) {
+			dc_voltage_12_prev = sums[1];
+			dc_voltage_12 = sums[1];
+		} else {
+			dc_voltage_12 = (dc_voltage_12_prev + dc_voltage_12_prev + dc_voltage_12_prev + sums[1]) >> 2;
+			dc_voltage_12_prev = dc_voltage_12;
+		}
 
 		if (sums[0] < 0)
 			sums[0] = 0;
 
-		dc_voltage_3v3 = sums[0];
+		if (dc_voltage_3v3_prev == 0x7FFFFFFF) {
+			dc_voltage_3v3_prev = sums[0];
+			dc_voltage_3v3 = sums[0];
+		} else {
+			dc_voltage_3v3 = (dc_voltage_3v3_prev + dc_voltage_3v3_prev + dc_voltage_3v3_prev + sums[0]) >> 2;
+			dc_voltage_3v3_prev = dc_voltage_3v3;
+		}
 
 		err_code = nrf_drv_saadc_buffer_convert(p_event->data.done.p_buffer, ADC_CHANNELS * ADC_SAMPLES_PER_CHANNEL);
 		APP_ERROR_CHECK(err_code);
@@ -178,7 +194,13 @@ static void internal_temperature_timeout_handler(void *p_context)
 
 	NRF_TEMP->TASKS_STOP = 1;
 
-	set_sensor_value('t', temp, false);
+	if (internal_temp_prev == 0x7FFFFFFF) {
+		internal_temp_prev = temp;
+	} else {
+		temp = (internal_temp_prev + internal_temp_prev + internal_temp_prev + temp) >> 2;
+		internal_temp_prev = temp;
+		set_sensor_value('t', temp, false);
+	}
 }
 
 static void bme280_measurement_delay_timeout_handler(void *p_context)
@@ -349,7 +371,7 @@ static bool init_bme280()
 	int8_t rslt = bme280_init(&bme280_sensor);
 	if (rslt != BME280_OK)
 		return false;
-	
+
 	bme280_sensor.settings.osr_h = BME280_OVERSAMPLING_16X;
 	bme280_sensor.settings.osr_p = BME280_OVERSAMPLING_16X;
 	bme280_sensor.settings.osr_t = BME280_OVERSAMPLING_16X;

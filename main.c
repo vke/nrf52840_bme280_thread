@@ -62,8 +62,6 @@
 
 #include <openthread/thread.h>
 
-#define DIMMER_PWM_INSTANCE                  NRF_DRV_PWM_INSTANCE(0)
-#define DIMMER_PWM_VALUE_MAX                 255
 #define ADC_CHANNELS                         2
 
 #define SCHED_QUEUE_SIZE                     32
@@ -79,8 +77,6 @@ APP_TIMER_DEF(m_voltage_timer_id);
 APP_TIMER_DEF(m_internal_temperature_timer_id);
 APP_TIMER_DEF(m_bme280_timer_id);
 APP_TIMER_DEF(m_bme280_measurement_delay_timer_id);
-
-void pwm_set_brightness(char sensor_name, int64_t sensor_value);
 
 sensor_subscription sensor_subscriptions[] = {
 	{ .sensor_name = 'P', .sent_value = 0, .current_value = 0, .reportable_change = 0, .disable_reporting = true, .read_only = true, .report_interval = 10000, .last_sent_at = 0, .set_value_handler = NULL, },
@@ -335,7 +331,7 @@ int8_t user_i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len, v
 
 	memcpy(&write_data[1], reg_data, len);
 
-	ret_code_t err_code = nrf_drv_twi_tx(&m_twi_master, *(uint8_t *)intf_ptr, write_data, len + 1 ,false);
+	ret_code_t err_code = nrf_drv_twi_tx(&m_twi_master, *(uint8_t *)intf_ptr, write_data, len + 1, false);
 
 	APP_ERROR_CHECK(err_code);
 

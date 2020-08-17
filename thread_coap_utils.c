@@ -55,6 +55,7 @@
 #include <openthread/thread.h>
 #include <openthread/icmp6.h>
 #include <openthread/platform/alarm-milli.h>
+#include <openthread/platform/misc.h>
 
 APP_TIMER_DEF(m_led_send_timer);
 APP_TIMER_DEF(m_led_recv_timer);
@@ -327,6 +328,27 @@ size_t fill_info_packet(uint8_t *pBuffer, size_t stBufferSize)
 		return 0;
 
 	cborError = cbor_encode_map_set_stringz(&encoderMap, "v", INFO_FIRMWARE_VERSION);
+	if (cborError != CborNoError)
+		return 0;
+
+	cborError = cbor_encode_map_set_int(&encoderMap, "r", otPlatGetResetReason(thread_ot_instance_get()));
+	if (cborError != CborNoError)
+		return 0;
+
+	uint8_t macAddr[8];
+	otPlatRadioGetIeeeEui64(thread_ot_instance_get(), macAddr);
+
+	cborError = cbor_encode_text_stringz(&encoderMap, "m");
+	if (cborError != CborNoError)
+		return 0;
+	cborError = cbor_encode_byte_string(&encoderMap, macAddr, sizeof(macAddr));
+	if (cborError != CborNoError)
+		return 0;
+
+	cborError = cbor_encode_text_stringz(&encoderMap, "e");
+	if (cborError != CborNoError)
+		return 0;
+	cborError = cbor_encode_byte_string(&encoderMap, (const uint8_t *)otLinkGetExtendedAddress(thread_ot_instance_get()), sizeof(otExtAddress));
 	if (cborError != CborNoError)
 		return 0;
 
@@ -900,8 +922,6 @@ static void subscription_response_handler(void                * p_context,
 										  const otMessageInfo * p_message_info,
 										  otError               result)
 {
-	UNUSED_PARAMETER(p_context);
-
 	poll_period_restore();
 }
 
